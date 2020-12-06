@@ -39,7 +39,7 @@ function App(props) {
                 content={content.primary_image.url + '&w=1200'}
                 key="og:image"
             />
-            <meta property="og:url" content={"https://spicygreenbook.com/biz/" + content.uid } key="og:url" />
+            <meta property="og:url" content={"https://spicygreenbook.org/biz/" + content.uid } key="og:url" />
         </Head>
         <Main {...props} />
       </StateProvider>
@@ -55,10 +55,11 @@ async function getUpdatedData(params) {
         config.ref_id = params.preview
     }
     let content = await getContent(config);
-    console.log('config', config, 'content', content.content)
+    //console.log('config', config, 'content', content.content)
     return {
         props: {
-            content: content.content
+            content: content.content,
+            url: '/biz/' + params.name
         }
     };
 }
@@ -73,7 +74,7 @@ export async function getStaticPaths() {
         paths: listings.map((biz) => {
             //console.log('piz', biz)
             return {
-                params: { name: biz.uid },
+                params: { name: biz.uid},
             };
         }),
         fallback: false,

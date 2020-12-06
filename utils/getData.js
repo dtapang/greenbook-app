@@ -1,4 +1,5 @@
 import fetch from 'isomorphic-unfetch'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function getPrismicGroupAdvanced(ref) {
     return ref.value.map(line => {
@@ -183,16 +184,90 @@ const isLocalWeb = () => (
 );
 
 export async function getInstagram() {
-    const url = isLocalWeb() ? 'http://localhost:3000/api/instagram' : 'https://spicygreenbook.com/api/instagram';
+    const url = isLocalWeb() ? 'http://localhost:3000/api/instagram' : 'https://spicygreenbook.org/api/instagram';
     try {
         const result = await fetch(url);
         const data = await result.json();
         if (data.error) throw data;
         return data;
     } catch (e) {
-        console.error(e);
+        // console.error(e);
         return [];
     }
+}
+
+async function getCacheMeta(setData) {
+    let cache_meta;
+    if (setData) {
+        try {
+            console.log('setting cache meta to', setData)
+            return await AsyncStorage.setItem('cacheMeta', JSON.stringify(setData))
+        } catch(e) {
+            console.log('failed to set async storage of cacheMeta')
+        }
+    } else {
+        try {
+            cache_meta = await AsyncStorage.getItem('cacheMeta');
+            if (!cache_meta) {
+                console.log('setting cache meta to default')
+                cache_meta = '{}'
+            }
+            return JSON.parse(cache_meta);
+        } catch(e) {
+            console.log('failed to fetch or parse cacheMeta')
+            return {};
+        }
+    }
+}
+
+export async function getData2(config) {
+    // cache wrapper for getDataActual
+    let cacheKey = Object.keys(config).filter(key => {
+        return typeof config[key] === 'string' || typeof config[key] === 'number'
+    }).map(key => {
+        return key + ':' + config[key]
+    }).join(',');
+
+    console.log('attempting to fetch from cache via key', cacheKey)
+
+    let rightNowSeconds = Math.round(new Date().getTime() / 1000);
+
+    let cacheDuration = (60 * 60 * 1); // 1 hours for now? seems ok to me
+
+    let data_cached;
+    let data_object;
+    let cache_meta = await getCacheMeta();
+    if (cache_meta[cacheKey] && cache_meta[cacheKey].cache_timestamp >= (rightNowSeconds-cacheDuration)) {
+        console.log('data is not stale attempt to fetch from cache', cacheKey);
+        try {
+            data_cached = await AsyncStorage.getItem(cacheKey);
+        } catch(e) {
+            console.log('error fetching', cacheKey, 'from cache')
+        }
+        if (data_cached) {
+            try {
+                data_object = JSON.parse(data_cached);
+                console.log('got data for', cacheKey, 'from cache because it is not yet stale')
+                return data_object
+            } catch(e) {
+                console.log('error parsing data for', cacheKey);
+            }
+        }
+    }
+
+    console.log('fetching data over network', cacheKey);
+    data_object = await getDataActual(config);
+    cache_meta[cacheKey] = {
+        cache_timestamp: rightNowSeconds
+    }
+    getCacheMeta(cache_meta);
+    try {
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(data_object));
+    } catch(e) {
+        console.log('failed to store cache', cacheKey)
+    }
+
+    return data_object;
 }
 
 export async function getData(config) {
@@ -222,6 +297,8 @@ export async function getData(config) {
         url = `https://spicygreenbook.cdn.prismic.io/api/v1/documents/search?ref=${master_ref}&q=%5B%5Bat(document.type%2C+%22${config.type}%22)%5D%5D&orderings=%5Bmy.staff.order%5D${config.limit ? ('&pageSize=' + config.limit) : ''}`;
     } else if (config.type === 'press') {
         url = `https://spicygreenbook.cdn.prismic.io/api/v1/documents/search?ref=${master_ref}&q=%5B%5Bat(document.type%2C+%22${config.type}%22)%5D%5D&orderings=%5Bmy.press.date%20desc%5D${config.limit ? ('&pageSize=' + config.limit) : ''}`;
+    } else if (config.type === 'roles') {
+        url = `https://spicygreenbook.cdn.prismic.io/api/v1/documents/search?ref=${master_ref}&q=%5B%5Bat(document.type%2C+%22${config.type}%22)%5D%5D&orderings=%5Bmy.roles.order%5D${config.limit ? ('&pageSize=' + config.limit) : ''}`;
     }
     if (url) {
         let data;
@@ -300,14 +377,4 @@ export async function getData(config) {
             })
     }
     return rows
-}
-
-export async function getAllData(config) {
-    let types = ['listing', 'updates', 'press', 'staff'];
-    let ret = {};
-    types.forEach(type => {
-        /*ret[type] = async getData({
-            type: type
-        })*/
-    })
 }

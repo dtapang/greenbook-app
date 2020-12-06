@@ -33,7 +33,7 @@ function App(props) {
                 />
             }
             <meta property="og:title" content={content.page_title + " - Spicy Green Book"} key="title" />
-            <meta property="og:url" content={"https://spicygreenbook.com/" + content.uid } key="og:url" />
+            <meta property="og:url" content={"https://spicygreenbook.org/" + content.uid } key="og:url" />
         </Head>
         <Main {...props} />
       </StateProvider>
@@ -43,11 +43,11 @@ function App(props) {
 export async function getStaticProps(context) {
     let content = await getContent({type: 'content', uid: 'staff', ref_id: context.preview || ''});
     let staff = await getData({type: 'staff'})
-    //console.log('content', content, 'staff', staff)
     return {
         props: {
             content: content && content.content || {},
-            staff: staff
+            staff: staff,
+            url: '/team'
         }
     };
 }

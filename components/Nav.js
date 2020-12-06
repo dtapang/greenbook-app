@@ -1,68 +1,25 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, Easing, Animated, Button, Image, TouchableOpacity } from 'react-native';
-//import {TouchableOpacity} from 'react-native-gesture-handler';
+import { StyleSheet, Text, View, Easing, Animated, Image, TouchableOpacity } from 'react-native';
 import { getStyles, Theme } from '../utils';
 import { useStateValue } from "../components/State";
 import { AntDesign } from '@expo/vector-icons';
-import { Link, Click } from '../components/Link';
-
-let menuIsClicked;
-let menuIsClickedTimer;
+import { Link } from '../components/Link';
+import { debounce} from 'lodash/fp';
 
 export default function (props) {
 
-    const [{ view, isWeb, theme, dimensions, menuOpen }, dispatch] = useStateValue();
-    const styles = StyleSheet.create(getStyles('nav, text_nav, text_nav_sub', { isWeb, theme }));
-
-    const [active, setActive] = useState('');
+    const [{ view, isWeb, theme, dimensions }, dispatch] = useStateValue();
+    const [active, setActive] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
-
+    const styles = StyleSheet.create(getStyles('nav, text_nav, text_nav_sub', { isWeb, theme }));
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    let dropdownclicked = false;
-
-    function scrollEventListener() {
-        if (window && document) {
-            let y = document.body.scrollTop || document.documentElement.scrollTop;
-            if (!isScrolled && y > 0) {
-                setIsScrolled(true);
-            } else if (isScrolled && y < 1) {
-                setIsScrolled(false);
-            }
-        }
-    }
-    function clickEventListener() {
-        if (window && document) {
-            setTimeout(() => {
-                if (!menuIsClicked) {
-                    console.log('menu is clicked 3 ', menuIsClicked)
-                    console.log(active)
-                    if (active === 'about' && !dropdownclicked) {
-                        setActive('');
-                    }
-                    dropdownclicked = false
-                }
-            }, 100)
-        }
-    }
-
-
-    if (isWeb) {
-        useEffect(() => {
-            window.addEventListener('scroll', scrollEventListener, false)
-            window.addEventListener('click', clickEventListener, false);
-            return () => {
-                window.removeEventListener('scroll', scrollEventListener, false)
-                window.removeEventListener('click', clickEventListener, false);
-            }
-        })
-    }
 
     const ColorIn = () => {
         // Will change fadeAnim value to 1 in 5 seconds
         Animated.timing(fadeAnim, {
-            easing: Easing.bounce,
+            easing: Easing.in,
             toValue: 1,
-            duration: 500,
+            duration: 200,
             useNativeDriver: true
         }).start();
     };
@@ -72,39 +29,54 @@ export default function (props) {
         Animated.timing(fadeAnim, {
             easing: Easing.ease,
             toValue: 0,
-            duration: 500,
+            duration: 200,
             useNativeDriver: true
         }).start();
     };
 
     useEffect(() => {
-        if (props.isScrolled) {
+        if (isScrolled === 'down') {
             ColorIn();
-        } else {
+        } else if (isScrolled === 'up') {
             ColorOut()
         }
-    }, [props.isScrolled])
+    }, [isScrolled])
+
+    
+    function scrollEventListener() {
+        let y = document.body.scrollTop || document.documentElement.scrollTop;
+
+        if (y > 10) {
+            setIsScrolled('down');
+
+        } else if (y < 10) {
+            setIsScrolled('up');
+        }
+    }
+
+    useEffect(() => {
+        const fn = debounce(200, scrollEventListener)
+        window.addEventListener('scroll', fn, false)
+
+        return () => window.removeEventListener('scroll', fn, false)
+    }, []);
 
     return (
         <View
           nativeID="nav"
-          style={[styles.nav,
-            {
+          style={[styles.nav, {
               borderBottomWidth: props.theme === 'light' && (props.isScrolled || (view.indexOf('/biz') === 0 && props.isScrolled)) ? 2 : 0,
               borderColor: Theme.green,
               backgroundColor: props.theme == 'light' ? '#fff' : 'transparent'
-            }
-            ]}>
+            }]} >
             {props.theme === 'dark' && <Animated.View
-                style={[
-                    {
-                        position: 'absolute',
-                        left: 0, top: 0, bottom: 0, right: 0,
-                        backgroundColor: '#000',
-                        opacity: fadeAnim
-                    }
-                ]}
-            />}
+                style={{
+                    position: 'absolute',
+                    left: 0, top: 0, bottom: 0, right: 0,
+                    backgroundColor: '#000',
+                    opacity: fadeAnim
+                }}/>
+            }
             <View style={{ padding: 20, flex: 1, alignContent: 'center', borderRightWidth: 2, borderColor: props.theme == 'light' ? Theme.green : '#fff' }}>
                 <Link href="/" fill>
                     <View style={{ height: '100%' }}>
@@ -137,64 +109,45 @@ export default function (props) {
                         </View>
                     </View>
                 ) : (
-                        <React.Fragment>
-                            <View style={{ flex: Math.floor(dimensions.width / 400) }} />
-                            <View style={{ paddingLeft: 80, justifyContent: 'center', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <Link href="/search"><Text style={styles.text_nav}>Browse</Text></Link>
-                            </View>
-                            <View style={{ paddingLeft: 80, justifyContent: 'center', flexDirection: 'column', alignItems: 'flex-end' }}>
+                        <View style={{flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center'}}>
+                            <Link href="/search"><Text style={styles.text_nav}>Browse</Text></Link>                            
+                            <View style={{ justifyContent: 'center', flexDirection: 'column', alignItems: 'flex-end' }}>
                                 <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                    <Link href="/about"><Text style={styles.text_nav}>About</Text></Link>
-                                    <AntDesign name="down" size={22} color={props.theme === 'light' ? Theme.green : '#fff'} style={{ cursor: 'pointer', marginLeft: 10 }} onClick={e => {
-                                        setActive(active === 'about' ? '' : 'about');
-                                        dropdownclicked = true
-                                    }} />
+                                    <Link href="/about"><Text style={[styles.text_nav, localStyle.anchor]}>About</Text></Link>
+                                    <AntDesign 
+                                        name="down" 
+                                        size={22} 
+                                        color={props.theme === 'light' ? Theme.green : '#fff'} 
+                                        style={{ cursor: 'pointer', marginLeft: 10 }} 
+                                        onClick={() => setActive(!active)} 
+                                    />
                                 </View>
                                 <View style={{
-                                    position: 'absolute', top: 60, right: 0, backgroundColor: '#fff', minWidth: 160, padding: 20,
-                                    opacity: active === 'about' ? 1 : 0, display: active === 'about' ? '' : 'none',
+                                    position: 'absolute', minHeight: 175, justifyContent: 'space-between', top: 30, right: 0, backgroundColor: '#fff', minWidth: 160, padding: 20,
+                                    opacity: active ? 1 : 0, display: active ? 'flex' : 'none',
                                     shadowOpacity: 0.4,
                                     shadowRadius: 10,
-                                }} onPress={e => {
-                                    if (isWeb) {
-                                        clearTimeout(menuIsClickedTimer);
-                                        menuIsClicked = true;
-                                        menuIsClickedTimer = setTimeout(() => {
-                                            menuIsClicked = false;
-                                        }, 500)
-                                    }
-                                }}>
-                                    <View style={{ flex: 1, flexDirection: 'row', paddingBottom: 10 }}>
-                                        <Link href="/updates"><Text style={styles.text_nav_sub}>Updates</Text></Link>
-                                    </View>
-                                    <View style={{ flex: 1, flexDirection: 'row', paddingBottom: 10 }}>
-                                        <Link href="/team"><Text style={styles.text_nav_sub}>Team</Text></Link>
-                                    </View>
-                                    <View style={{ flex: 1, flexDirection: 'row', paddingBottom: 10 }}>
-                                        <Link href="/process"><Text style={styles.text_nav_sub}>Process</Text></Link>
-                                    </View>
-                                    <View style={{ flex: 1, flexDirection: 'row', paddingBottom: 10 }}>
-                                        <Link href="/press"><Text style={styles.text_nav_sub}>Press</Text></Link>
-                                    </View>
-                                    <View style={{ flex: 1, flexDirection: 'row' }}>
-                                        <Link href="/contact"><Text style={styles.text_nav_sub}>Contact Us</Text></Link>
-                                    </View>
+                                }} onPress={() => setActive(!active)}>     
+                                    <Link href="/updates"><Text style={styles.text_nav_sub}>Updates</Text></Link>    
+                                    <Link href="/team"><Text style={styles.text_nav_sub}>Team</Text></Link>
+                                    <Link href="/process"><Text style={styles.text_nav_sub}>Process</Text></Link>       
+                                    <Link href="/press"><Text style={styles.text_nav_sub}>Press</Text></Link>              
+                                    <Link href="/contact"><Text style={styles.text_nav_sub}>Contact Us</Text></Link>                            
                                 </View>
                             </View>
-                            <View style={{ paddingLeft: 80, justifyContent: 'center', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <Link href="/add"><Text style={styles.text_nav}>Add Listing</Text></Link>
-                            </View>
-                            <View style={{ paddingLeft: 80, justifyContent: 'center', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <Link href="/donate"><Text style={styles.text_nav}>Donate</Text></Link>
-                            </View>
-                            <View style={{ paddingLeft: 80, justifyContent: 'center', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                <Link href="/volunteer"><Text style={styles.text_nav}>Volunteer</Text></Link>
-                            </View>
-                        </React.Fragment>
+    
+                            <Link style={localStyle.anchor} href="/add"><Text style={[styles.text_nav, localStyle.anchor]}>Add Listing</Text></Link>
+                            <Link style={localStyle.anchor} href="/donate"><Text style={[styles.text_nav, localStyle.anchor]}>Donate</Text></Link>
+                            <Link href="/volunteer"><Text style={[styles.text_nav, localStyle.anchor]}>Volunteer</Text></Link>
+                        </View>
                     )}
             </View>
         </View>
     )
-
 }
 
+const localStyle = StyleSheet.create({
+    anchor: {
+        paddingLeft: 80
+    }
+})

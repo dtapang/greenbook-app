@@ -1,8 +1,6 @@
 // @generated: @expo/next-adapter@2.1.0
 import React, { useState, useEffect } from 'react';
-import { Text, View, StyleSheet, ScrollView } from 'react-native';
-//import { setGlobals } from '../utils';
-
+import { View, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
 import Home from '../screens/Home';
@@ -21,70 +19,37 @@ import List from '../screens/List';
 import Listing from '../screens/Listing';
 import Menu from '../components/Menu';
 import ImageGallery from '../components/ImageGallery';
-import {useStateValue} from "../components/State";
-import { useFonts } from 'expo-font';
-import { getStyles, getImage } from '../utils';
-import { Dimensions, Platform } from 'react-native';
-import * as Font from 'expo-font';
-
+import { useStateValue } from "../components/State";
+import { getStyles, Theme } from '../utils';
+import { debounce} from 'lodash/fp';
 
 function Main(props) {
 
-  const [{ view, isWeb, theme, menuOpen, dimensions, lightbox, lightboxConfig }, dispatch] = useStateValue();
-  const [ isScrolled, setIsScrolled ] = useState(false);
-  const _isWeb = Platform.OS === 'web';
-  console.log('initial render view is', view)
-  const styles = StyleSheet.create(getStyles('body', {isWeb}));
+  const [{ view, isWeb, theme, menuOpen, lightbox, lightboxConfig }, dispatch] = useStateValue();
+  const [isFrontEnd, setIsFrontEnd] = useState(false);
 
-  const onChangeScreenSize = ({ set_window, set_screen }) => {
-    const get_window = Dimensions.get("window");
-    let set_to = {
-      width: get_window.width,
-      height: get_window.height
-    }
-    console.log('setting to', set_to)
-    if (isWeb && get_window.width !== dimensions.width) {
-      dispatch({type: 'setDimensions', value: set_to})
-    }
+  const styles = StyleSheet.create(getStyles('body'));
+
+  // This will ensure dimensions is defined in the frontend
+  useEffect(() => {
+    setIsFrontEnd(true);
+  }, []);
+
+  function onChangeScreenSize() {
+    dispatch({ type: 'setDimensions', value: {
+      width: Dimensions.get("window").width,
+      height: Dimensions.get("screen").height
+    } })
   };
-
-  let fonts = {
-      'ApercuMedium': {
-          uri: require('../public/fonts/ApercuRegular.ttf'),
-          display: 'fallback',
-      },
-      'ApercuLight': {
-          uri: require('../public/fonts/ApercuLight.ttf'),
-          display: 'fallback',
-      },
-      'KnockoutBold': {
-          uri: require('../public/fonts/Knockout_HTF71-FullMiddlewt_Regular.otf'),
-          display: 'fallback',
-      },
-      'KnockoutWelterWeight': {
-          uri: require('../public/fonts/Knockout_HTF50-Welterweight_Regular.otf'),
-          display: 'fallback',
-      },
-      'KnockoutFeatherWeight': {
-          uri: require('../public/fonts/Knockout_HTF48-Featherweight_Regular.otf'),
-          display: 'fallback',
-      }
-  };
-  if (!process.browser) {
-      //await Font.loadAsync(fonts);
-  }
-  const [ fontsReady, fontsError ] = useFonts(fonts);
-
 
   useEffect(() => {
-    Dimensions.addEventListener("change", onChangeScreenSize);
-    return () => {
-      Dimensions.removeEventListener("change", onChangeScreenSize);
-    };
+    const fn = debounce(300, onChangeScreenSize)
+    Dimensions.addEventListener("change", fn, false);
+ 
+    return () => Dimensions.removeEventListener("change", fn, false);
   }, []);
 
   useEffect(() => {
-    console.log('view has changed to', view);
     let _theme = 'light';
     if (view && view.length > 1 && view != '/' && view != '') {
       _theme = 'light'
@@ -92,98 +57,57 @@ function Main(props) {
       _theme = 'dark'
     }
     if (theme !== _theme) {
-      console.log('theme', theme)
-      dispatch({type: 'setTheme', value: theme})
+      console.log('view has changed to', view);
+      console.log('theme changed to', _theme)
+      dispatch({ type: 'setTheme', value: _theme })
     }
   }, [view])
 
-  function scrollEventListener() {
-    if (window && document) {
-        let y = document.body.scrollTop || document.documentElement.scrollTop;
-        if (!isScrolled && y > 0) {
-          setIsScrolled(true);
-        } else if (isScrolled && y < 1) {
-          setIsScrolled(false);
-        }
-    }
-  }
-
-  if (isWeb) {
-    useEffect(() => {
-      window.addEventListener('scroll', scrollEventListener, false)
-      return () => {
-        window.removeEventListener('scroll', scrollEventListener, false)
-      }
-    })
-  }
-
-  if (!isWeb || !process.browser) {
-    if (!fontsReady) {
-      return ( <Text>Loading...</Text> )
-    }
-  }
-
   function renderContent(props) {
-      return (
-          view === '/about' ? <About {...props} />
-          : view === '/updates' ? <Updates {...props} />
+    return (
+      view === '/about' ? <About {...props} />
+        : view === '/updates' ? <Updates {...props} />
           : view === '/privacy' ? <Privacy {...props} />
-          : view === '/press' ? <Press {...props} />
-          : view === '/team' ? <Team {...props} />
-          : view === '/process' ? <Process {...props} />
-          : view === '/contact' ? <Contact {...props} />
-          : view === '/add' ? <AddListing {...props} />
-          : view === '/volunteer' ? <Volunteer {...props} />
-          : view === '/donate' ? <Donate {...props} />
-          : view === '/search' ? <List {...props} />
-          : view.indexOf('/biz') === 0 ? <Listing {...props} />
-          : view === '/' ? <Home {...props} />
-          : <NotFound {...props} />
-      )
+            : view === '/press' ? <Press {...props} />
+              : view === '/team' ? <Team {...props} />
+                : view === '/process' ? <Process {...props} />
+                  : view === '/contact' ? <Contact {...props} />
+                    : view === '/add' ? <AddListing {...props} />
+                      : view === '/volunteer' ? <Volunteer {...props} />
+                        : view === '/donate' ? <Donate {...props} />
+                          : view === '/search' || view.indexOf('/cities') > -1 ? <List {...props} />
+                            : view.indexOf('/biz') === 0 ? <Listing {...props} />
+                              : view === '/' ? <Home {...props} />
+                                : <NotFound {...props} />
+    )
   }
 
-  return (
-      <View style={isWeb ? {minHeight: '100vh', flex: 1}: {flex: 1}}>
-          {lightbox && lightboxConfig.images ? (
-            <React.Fragment>
-              <ImageGallery images={lightboxConfig.images} firstIndex={lightboxConfig.index} />
-              {isWeb && <style
-                dangerouslySetInnerHTML={{
-                  __html: `#chat-widget-container {
-                    z-index: 5 !important;
-                    display: none !important
-                  }`
-              }} />}
-            </React.Fragment>
-          ) : menuOpen ? (
-            <Menu />
-          ) : (
-            <React.Fragment>
-              {!lightbox && isWeb && <Nav isScrolled={isScrolled} theme={theme} />}{/* want nav on top for semantic html i guess*/}
-              { isWeb ? (
-                  <View style={styles.body}>
-                    {renderContent(props)}
-                  </View>
-                 ) : (
-                  <ScrollView style={styles.body} onScroll={(e) => {
-                    if (!isScrolled && e.nativeEvent.contentOffset.y > 0) {
-                      setIsScrolled(true);
-                    } else if (isScrolled && e.nativeEvent.contentOffset.y < 1) {
-                      setIsScrolled(false);
-                    }
-                  }} scrollEventThrottle={16}>
-                    {renderContent(props)}
-                    {!isWeb && <Footer theme={theme} />}
-                  </ScrollView>
-                 )}
-              {isWeb && <Footer theme={theme} />}
-              {!lightbox && !isWeb && <Nav isScrolled={isScrolled} theme={theme} />}{/* makes it clickable to be last render on android*/}
-
-            </React.Fragment>
-          )}
+  return !isFrontEnd 
+    ? <View style={{marginTop: 200, marginBottom: 200}}>
+        <ActivityIndicator color={Theme.green} size="large" />
       </View>
-  );
+    : <View style={isWeb ? { position: 'absolute', top: 0, right: 0, left: 0, bottom: 0, flex: 1 } : { flex: 1 }}>
+        {lightbox && lightboxConfig.images ? (
+          <React.Fragment>
+            <ImageGallery images={lightboxConfig.images} firstIndex={lightboxConfig.index} />
+            {isWeb && <style
+              dangerouslySetInnerHTML={{
+                __html: `#chat-widget-container {
+                      z-index: 5 !important;
+                      display: none !important
+                    }`
+              }} />}
+          </React.Fragment>
+        ) : menuOpen 
+            ? <Menu /> 
+            : <React.Fragment>
+                {!lightbox && isWeb && <Nav theme={theme} />}{/* want nav on top for semantic html i guess*/}
+                <View style={styles.body}>{renderContent(props)}</View>
+                <Footer theme={theme} />
+                {!lightbox && !isWeb && <Nav theme={theme} />}{/* makes it clickable to be last render on android*/}
+              </React.Fragment>
+        }
+    </View>
 }
-
 
 export default Main;

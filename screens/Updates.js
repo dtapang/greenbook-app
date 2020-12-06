@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import { useStateValue } from "../components/State";
 import {View, Text, StyleSheet, Button, Platform, ActivityIndicator, FlatList, Image} from 'react-native';
 import { Link } from "../components/Link"; 
+import { PageTitle } from "../components/PageTitle"; 
 import { RichText } from "../components/RichText"; 
 import Attribution from "../components/Attribution"; 
 import { getStyles, Theme, getContent, getData } from '../utils';
@@ -13,11 +14,10 @@ function Page(props) {
     const [{ view, isWeb, dimensions }, dispatch] = useStateValue();
     const styles = StyleSheet.create(
       getStyles(
-        "text_header2, text_header4, text_header5, section, content",
+        "text_header2, text_header4, text_header5, section, content, tagline",
         { isWeb }
       )
     );
-    //console.log('page props', props)
 
     const [ pageLoading, setPageLoading ] = useState(props.content ? false: true);
     const [ content, setContent ] = useState(props.content || {});
@@ -28,13 +28,12 @@ function Page(props) {
 
     if (!props.content) {
         useEffect(() => {
-            setContent(getContent({type: 'content', uid: 'updates'}).then(_content => {
-                console.log('_content', _content)
+            getContent({type: 'content', uid: 'updates'}).then(_content => {
                 setContent(_content.content)
                 setPageLoading(false);
             }).catch(err => {
                 console.error(err);
-            }));
+            });
         }, [])
     }
 
@@ -43,7 +42,6 @@ function Page(props) {
             getData({
                 type: 'updates'
             }).then(updates => {
-                console.log('updates izz', updates)
                 setLoadingUpdates(false);
                 setUpdates(updates)
             }).catch(err => {
@@ -67,28 +65,8 @@ function Page(props) {
           </View>
         ) : (
           <React.Fragment>
-            <View
-              style={[
-                styles.section,
-                { backgroundColor: Theme.green_bg, paddingTop: 180 },
-              ]}
-            >
-              <View
-                style={[
-                  styles.content,
-                  { flexDirection: "column", alignItems: "center" },
-                ]}
-              >
-                <Text
-                  accessibilityRole="header"
-                  aria-level="2"
-                  style={[styles.text_header2, { color: "#fff" }]}
-                >
-                  {content.page_title}
-                </Text>
-              </View>
-            </View>
-            {!!hasBody && <View style={[styles.section]}>
+            <PageTitle title={content.page_title} />
+            {!!hasBody && <View style={[styles.tagline]}>
               <View style={styles.content}>
                 <RichText render={content._body} isWeb={isWeb} />
               </View>
@@ -113,7 +91,6 @@ function Page(props) {
                         key={"update" + index}
                         style={{
                           flex: 1 / numColumns,
-                          // justifyContent: "space-between",
                           margin: 10,
                           borderTopWidth: 2,
                           borderColor: Theme.green,

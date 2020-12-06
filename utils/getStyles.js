@@ -1,4 +1,4 @@
-import { Dimensions } from 'react-native';
+import { Dimensions, Platform } from 'react-native';
 
 const theme = {
     green: '#006233',
@@ -40,10 +40,17 @@ const allStyles = {
       marginTop: config.isWeb ? 0 : 40,
     };
   },
+  tagline: function (config) {
+    return {
+      ...this.section(config),
+      paddingTop: 48,
+      paddingBottom: 48,
+    };
+  },
   section: function (config) {
     return {
       padding: 20,
-      paddingTop: 80,
+      paddingTop: config.isWeb ? 48 : 0,
       paddingBottom: 80,
       alignContent: "center",
       alignItems: "center",
@@ -158,7 +165,7 @@ const allStyles = {
     return {
       fontFamily: "ApercuMedium",
       fontSize: config.windowWidth < 900 ? 20 : 24,
-      lineHeight: config.windowWidth < 900 ? 28 : 32,
+      lineHeight: config.windowWidth < 900 ? 20 : 32,
       color: "#606060",
     };
   },
@@ -265,7 +272,7 @@ const allStyles = {
   },
 };
 
-export function getStyles(key, config) {
+export function getStyles(key, config = { isWeb: Platform.OS === 'web' }) {
     let ret = {};
 
     config.windowWidth = Dimensions.get('window').width;
